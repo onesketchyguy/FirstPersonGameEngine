@@ -1,0 +1,11 @@
+C:\Users\frres\source\repos\FirstPersonGameEngine\bin\Debug\netcoreapp3.1\FirstPersonGameEngine.exe
+C:\Users\frres\source\repos\FirstPersonGameEngine\bin\Debug\netcoreapp3.1\FirstPersonGameEngine.deps.json
+C:\Users\frres\source\repos\FirstPersonGameEngine\bin\Debug\netcoreapp3.1\FirstPersonGameEngine.runtimeconfig.json
+C:\Users\frres\source\repos\FirstPersonGameEngine\bin\Debug\netcoreapp3.1\FirstPersonGameEngine.runtimeconfig.dev.json
+C:\Users\frres\source\repos\FirstPersonGameEngine\bin\Debug\netcoreapp3.1\FirstPersonGameEngine.dll
+C:\Users\frres\source\repos\FirstPersonGameEngine\bin\Debug\netcoreapp3.1\FirstPersonGameEngine.pdb
+C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.csprojAssemblyReference.cache
+C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.AssemblyInfoInputs.cache
+C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.AssemblyInfo.cs
+C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.dll
+C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.pdb
