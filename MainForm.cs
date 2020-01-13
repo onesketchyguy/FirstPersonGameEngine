@@ -52,9 +52,9 @@ namespace FirstPersonGameEngine
         {
             InitializeComponent();
 
-            Player = new Unit(Vector3.zero, 0, playerChar);
+            // Create the game space
+            Player = new Unit(Vector3.zero, 180, playerChar);
             mainGame = new Game(Player);
-
             Player.position = mainGame.GetUnitPosistion(Player);
 
             display.Paint += FrontImage_Paint;
@@ -62,31 +62,30 @@ namespace FirstPersonGameEngine
             ResizeBegin += (object sender, EventArgs e) => dontDraw = true;
             ResizeEnd += (object sender, EventArgs e) => dontDraw = false;
 
-            foreach (var key in Enum.GetValues(typeof(Keys)))
-            {
-                Input.ChangeState((Keys)key, false);
-            }
-
             // Input
+            foreach (var key in Enum.GetValues(typeof(Keys))) Input.ChangeState((Keys)key, false); // Add all keys to the keytable. (This will allow each keypress to be detected on key press instead of on second keypress.)
+            // Update the keytable when a key is pressed
             KeyDown += (object sender, KeyEventArgs e) => Input.ChangeState(e.KeyCode, true);
             KeyUp += (object sender, KeyEventArgs e) => Input.ChangeState(e.KeyCode, false);
 
-            // Create a threading example for the game timer
+            // Create the game timer
             var gameTime = new System.Windows.Forms.Timer
             {
                 Interval = 10
             };
-            gameTime.Start();
             gameTime.Tick += GameTime_Tick;
 
+            // Initialize the frame rate counters
             timerA = DateTime.Now.TimeOfDay.TotalSeconds;
             timerB = DateTime.Now.TimeOfDay.TotalSeconds;
 
-            DrawWorldThread();
-
-            display.Invalidate();
+            // Start the game
+            gameTime.Start();
         }
 
+        /// <summary>
+        /// Creates a thread to draw the world
+        /// </summary>
         private void DrawWorldThread()
         {
             if (worldThread != null && worldThread.IsAlive == true && worldThread.ThreadState == ThreadState.Running) return;
@@ -99,14 +98,23 @@ namespace FirstPersonGameEngine
             worldThread.Start();
         }
 
+        /// <summary>
+        /// Update tick
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void GameTime_Tick(object sender, EventArgs e)
         {
+            // Get the frame rate
             timerB = DateTime.Now.TimeOfDay.TotalSeconds;
             timeSinceLastFrame = timerA - timerB;
             timerA = timerB;
 
+            // Check all units for any change.
+            // (This would not be optimal for larger games. Instead just draw the world every update.)
             foreach (var unit in mainGame.units)
             {
+                // If there was a change, update the screen
                 if (unit.IsStill == false)
                 {
                     unit.SetStill();
@@ -115,6 +123,7 @@ namespace FirstPersonGameEngine
                 }
             }
 
+            // Get the player input
             HandleMovement((float)timeSinceLastFrame);
             HandleControlInputs();
 
@@ -126,8 +135,8 @@ namespace FirstPersonGameEngine
         {
             float moveSpeed = 2;
             float rotSpeed = 0.8f;
-            float bobAmount = 15;
-            float bobSpeed = 2;
+            float bobAmount = 7.5f;
+            float bobSpeed = 1;
 
             float runMultiplier = 2;
 
@@ -136,6 +145,9 @@ namespace FirstPersonGameEngine
             {
                 rotSpeed *= runMultiplier;
                 moveSpeed *= runMultiplier;
+
+                bobAmount *= runMultiplier;
+                bobSpeed *= runMultiplier;
             }
 
             // Controls
@@ -149,8 +161,8 @@ namespace FirstPersonGameEngine
             float newPlayerX = -((float)Math.Sin(Player.angle) * (Input.vertical * moveSpeed) * elapsedTimeSinceLastFrame);
             float newPlayerY = -((float)Math.Cos(Player.angle) * (Input.vertical * moveSpeed) * elapsedTimeSinceLastFrame);
 
-            var _char = mainGame.mapData[((int)(Player.position.y + newPlayerY) * mainGame.mapWidth + (int)(Player.position.x + newPlayerX))];
             // Collision check
+            var _char = mainGame.mapData[((int)(Player.position.y + newPlayerY) * mainGame.mapWidth + (int)(Player.position.x + newPlayerX))];
             if (char.IsDigit(_char) == false)
             {
                 Player.position.x += newPlayerX;
@@ -181,33 +193,46 @@ namespace FirstPersonGameEngine
             {
                 if (Player.position.z > 0)
                 {
-                    Player.position.z -= 1;
+                    Player.position.z -= bobSpeed;
                 }
                 else
                 if (Player.position.z < 0)
                 {
-                    Player.position.z += 1;
+                    Player.position.z += bobSpeed;
                 }
 
                 bobbingUp = false;
             }
         }
 
+        /// <summary>
+        /// Extra button actions
+        /// </summary>
         private void HandleControlInputs()
         {
             if (Input.KeyDown(Keys.F3))
             {
                 Debug.Displaying = !Debug.Displaying;
             }
+
+            if (Input.KeyDown(Keys.Escape))
+            {
+                Application.Exit();
+            }
         }
 
+        /// <summary>
+        /// Updates the current display data
+        /// </summary>
         private void UpdateViewportData()
         {
             if (dontDraw) return;
 
+            // Get the options from the Options manager
             var fov = Options.fov;
             var depthOfView = Options.depthOfView;
 
+            // Get the colors from the screen
             Task<Color[,]> colors = Task.Run(() =>
             {
                 var value = new Color[screenWidth, screenHeight];
@@ -312,19 +337,13 @@ namespace FirstPersonGameEngine
                             if (nY > ceiling && nY < floor)
                             {
                                 // Wall
-
-                                if (wallBrightness > .1f)
-                                {
-                                    distToLastWall += 0.25f;
-                                }
+                                distToLastWall += 0.25f;
 
                                 if (boundary)
                                 {
                                     wallBrightness -= 0.5f;
 
                                     if (wallBrightness < 0) wallBrightness = 0;
-
-                                    distToLastWall += 0.25f;
                                 }
                                 else
                                 {
@@ -386,43 +405,42 @@ namespace FirstPersonGameEngine
         private void FrontImage_Paint(object sender, PaintEventArgs e)
         {
             if (dontDraw) return;
-
-            var resolutionDivider = Options.resolutionDivider;
-
-            if (viewport == null)
-            {
-                return;
-            }
+            if (viewport == null) return; // Dont attempt to draw if there is no pallete to draw from.
 
             var graphics = e.Graphics;
 
             graphics.Clear(Color.Empty);
 
-            var bufferAmount = (Player.IsStill ? 1 : 3);
+            var resolutionDivider = Options.resolutionDivider;
+            var motionBlur = (Player.IsStill ? 1 : Options.motionBlur);
 
             // Draw screen
-            for (int x = 0; x < screenWidth / bufferAmount; x++)
+            for (int x = 0; x < screenWidth / motionBlur; x++)
             {
-                for (int y = 0; y < screenHeight / bufferAmount; y++)
+                for (int y = 0; y < screenHeight / motionBlur; y++)
                 {
-                    if (x * bufferAmount >= viewport.GetLength(0) || y * bufferAmount >= viewport.GetLength(1))
+                    // Check if the screen has been resized and recalculate the pallete if so.
+                    if (x * motionBlur >= viewport.GetLength(0) || y * motionBlur >= viewport.GetLength(1))
                     {
                         DrawWorldThread();
                         continue;
                     }
 
-                    var color = viewport[x * bufferAmount, y * bufferAmount];
+                    // Get the color from the pallete
+                    var color = viewport[x * motionBlur, y * motionBlur];
 
+                    // Dont draw if color is black/empty
                     if (color.IsEmpty || color == Color.Black || color.GetBrightness() < 0.05f) continue;
 
-                    var rectPos = new Rectangle((x * bufferAmount) * resolutionDivider, (y * bufferAmount) * resolutionDivider, bufferAmount * resolutionDivider, bufferAmount * resolutionDivider);
+                    var rectPos = new Rectangle((x * motionBlur) * resolutionDivider, (y * motionBlur) * resolutionDivider, motionBlur * resolutionDivider, motionBlur * resolutionDivider);
                     graphics.FillRectangle(new SolidBrush(color), rectPos);
                 }
             }
 
             if (Debug.Displaying)
                 graphics.DrawString($"FPS={1.0f / timeSinceLastFrame}\n" +
-                    $"X:{Player.position.x} Y:{Player.position.y}  ROT:{(360 / 2) / (3.14 / Player.angle)}", SystemFonts.DefaultFont, Brushes.LightSalmon, new RectangleF(10, 10, screenWidth, screenHeight));
+                    $"X:{(int)Player.position.x} Y:{(int)Player.position.y} Z:{(int)Player.position.z}\n" +
+                    $"ROT:{(int)((360 / 2) / (3.14 / Player.angle))}", SystemFonts.DefaultFont, Brushes.LightSalmon, new RectangleF(10, 10, screenWidth, screenHeight));
         }
     }
 }
