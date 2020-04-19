@@ -135,8 +135,8 @@ namespace FirstPersonGameEngine
         {
             float moveSpeed = 2;
             float rotSpeed = 0.8f;
-            float bobAmount = 7.5f;
-            float bobSpeed = 1;
+            float bobAmount = 2.5f;
+            float bobSpeed = .5f;
 
             float runMultiplier = 2;
 
@@ -215,6 +215,17 @@ namespace FirstPersonGameEngine
                 Debug.Displaying = !Debug.Displaying;
             }
 
+            if (Input.KeyDown(Keys.F5))
+            {
+                Options.depthOfView++;
+                DrawWorldThread();
+            }
+            else if (Input.KeyDown(Keys.F4))
+            {
+                Options.depthOfView--;
+                DrawWorldThread();
+            }
+
             if (Input.KeyDown(Keys.Escape))
             {
                 Application.Exit();
@@ -233,131 +244,131 @@ namespace FirstPersonGameEngine
             var depthOfView = Options.depthOfView;
 
             // Get the colors from the screen
-            Task<Color[,]> colors = Task.Run(() =>
+            viewport = new Color[screenWidth, screenHeight];
+
+            float distToLastWall = 0;
+
+            // Draw screen
+            for (int x = 0; x < screenWidth; x++)
             {
-                var value = new Color[screenWidth, screenHeight];
+                // Foreach column, calculate the projected ra angle into world space
+                float rayAngle = (Player.angle - fov / 2.0f) + ((float)x / (float)screenWidth) * fov;
+                float distanceToWall = 0;
 
-                float distToLastWall = 0;
+                Color wallColor = Color.Empty;
+                bool boundary = false;
 
-                // Draw screen
-                for (int x = 0; x < screenWidth; x++)
+                // Unit vector for ray in player space
+                float eyeX = (float)Math.Sin(rayAngle);
+                float eyeY = (float)Math.Cos(rayAngle);
+
+                while (distanceToWall < depthOfView)
                 {
-                    // Foreach column, calculate the projected ra angle into world space
-                    float rayAngle = (Player.angle - fov / 2.0f) + ((float)x / (float)screenWidth) * fov;
-                    float distanceToWall = 0;
+                    distanceToWall += .05f;
 
-                    Color wallColor = Color.Empty;
-                    bool boundary = false;
+                    int testX = (int)(Player.position.x + eyeX * distanceToWall);
+                    int testY = (int)(Player.position.y + eyeY * distanceToWall);
 
-                    // Unit vector for ray in player space
-                    float eyeX = (float)Math.Sin(rayAngle);
-                    float eyeY = (float)Math.Cos(rayAngle);
-
-                    while (distanceToWall < depthOfView)
+                    // Test if ray is out of bounds
+                    if (testX < 0 || testX >= mainGame.mapWidth || testY < 0 || testY >= mainGame.mapHeight)
                     {
-                        distanceToWall += .05f;
+                        // Set distance to maximum depth
+                        distanceToWall = depthOfView;
 
-                        int testX = (int)(Player.position.x + eyeX * distanceToWall);
-                        int testY = (int)(Player.position.y + eyeY * distanceToWall);
+                        break;
+                    }
+                    else
+                    {
+                        var character = mainGame.mapData[testY * mainGame.mapWidth + testX];
 
-                        // Test if ray is out of bounds
-                        if (testX < 0 || testX >= mainGame.mapWidth || testY < 0 || testY >= mainGame.mapHeight)
+                        if (char.IsDigit(character))
                         {
-                            // Set distance to maximum depth
-                            distanceToWall = depthOfView;
+                            wallColor = mainGame.GetWallColor(character);
+
+                            var pairs = new List<Pair<float, float>>();
+
+                            for (int boundaryX = 0; boundaryX < 2; boundaryX++)
+                            {
+                                for (int boundaryY = 0; boundaryY < 2; boundaryY++)
+                                {
+                                    float vectorY = (float)testY + boundaryY - Player.position.y;
+                                    float vectorX = (float)testX + boundaryX - Player.position.x;
+
+                                    float dist = (float)Math.Sqrt(vectorX * vectorX + vectorY * vectorY);
+                                    float dot = (eyeX * vectorX / dist) + (eyeY * vectorY / dist);
+
+                                    pairs.Add(new Pair<float, float>(dist, dot));
+                                }
+                            }
+
+                            // Sort the pairs from closest to furthest.
+                            pairs.Sort((a, b) =>
+                            {
+                                return (a.First < b.First) ? -1 : 1;
+                            });
+
+                            float bound = 0.008f;
+                            if (Math.Acos(pairs[0].Second) < bound) boundary = true;
+                            else
+                            if (Math.Acos(pairs[1].Second) < bound) boundary = true;
+                            else
+                            if (Math.Acos(pairs[2].Second) < bound) boundary = true;
 
                             break;
                         }
-                        else
-                        {
-                            var character = mainGame.mapData[testY * mainGame.mapWidth + testX];
-
-                            if (char.IsDigit(character))
-                            {
-                                wallColor = mainGame.GetWallColor(character);
-
-                                var pairs = new List<Pair<float, float>>();
-
-                                for (int boundaryX = 0; boundaryX < 2; boundaryX++)
-                                {
-                                    for (int boundaryY = 0; boundaryY < 2; boundaryY++)
-                                    {
-                                        float vectorY = (float)testY + boundaryY - Player.position.y;
-                                        float vectorX = (float)testX + boundaryX - Player.position.x;
-
-                                        float dist = (float)Math.Sqrt(vectorX * vectorX + vectorY * vectorY);
-                                        float dot = (eyeX * vectorX / dist) + (eyeY * vectorY / dist);
-
-                                        pairs.Add(new Pair<float, float>(dist, dot));
-                                    }
-                                }
-
-                                // Sort the pairs from closest to furthest.
-                                pairs.Sort((a, b) =>
-                                {
-                                    return (a.First < b.First) ? -1 : 1;
-                                });
-
-                                float bound = 0.008f;
-                                if (Math.Acos(pairs[0].Second) < bound) boundary = true;
-                                else
-                                if (Math.Acos(pairs[1].Second) < bound) boundary = true;
-                                else
-                                if (Math.Acos(pairs[2].Second) < bound) boundary = true;
-
-                                break;
-                            }
-                        }
                     }
+                }
 
-                    // Calculate the distance to ceiling and floor
-                    int ceiling = (int)((screenHeight / 2f) - screenHeight / distanceToWall);
-                    int floor = screenHeight - ceiling;
+                // Calculate the distance to ceiling and floor
+                int ceiling = (int)((screenHeight / 2f) - screenHeight / distanceToWall);
+                int floor = screenHeight - ceiling;
 
-                    if (distanceToWall > depthOfView) distanceToWall = depthOfView;
+                if (distanceToWall > depthOfView) distanceToWall = depthOfView;
 
-                    float wallBrightness = (depthOfView - distanceToWall) / depthOfView;
+                float wallBrightness = (depthOfView - distanceToWall) / depthOfView;
 
-                    for (int y = 0; y < screenHeight; y++)
+                for (int y = 0; y < screenHeight; y++)
+                {
+                    byte brightnessValue = 0;
+                    var nY = y;
+                    nY += (int)MathF.Round(Player.position.z);
+
+                    if (nY <= ceiling)
                     {
-                        byte brightnessValue = 0;
-                        var nY = y;
-                        nY += (int)MathF.Round(Player.position.z);
+                        // Ceiling
+                        // Shade the ceiling
+                        float shading = 1 - ((nY + screenHeight / 2.0f) / (screenHeight / 2.0f)) / 2;
 
-                        if (nY <= ceiling)
+                        brightnessValue = (byte)(255 * (shading / 1.5f));
+                    }
+                    else
+                    {
+                        if (nY > ceiling && nY < floor)
                         {
-                            // Ceiling
-                            // Shade the ceiling
-                            float shading = 1 - ((nY + screenHeight / 2.0f) / (screenHeight / 2.0f)) / 2;
+                            // Wall
+                            distToLastWall += 0.25f;
 
-                            brightnessValue = (byte)(255 * (shading / 1.5f));
-                        }
-                        else
-                        {
-                            if (nY > ceiling && nY < floor)
+                            if (boundary)
                             {
-                                // Wall
-                                distToLastWall += 0.25f;
+                                wallBrightness -= 0.5f;
 
-                                if (boundary)
-                                {
-                                    wallBrightness -= 0.5f;
-
-                                    if (wallBrightness < 0) wallBrightness = 0;
-                                }
-                                else
-                                {
-                                    brightnessValue = (byte)(255 * wallBrightness);
-
-                                    var brightness = Color.FromArgb(brightnessValue, brightnessValue, brightnessValue, brightnessValue);
-                                    value[x, y] = Blend(wallColor, brightness, .8);
-
-                                    continue;
-                                }
+                                if (wallBrightness < 0) wallBrightness = 0;
                             }
                             else
                             {
-                                // Floor
+                                brightnessValue = (byte)(255 * wallBrightness);
+
+                                var brightness = Color.FromArgb(brightnessValue, brightnessValue, brightnessValue, brightnessValue);
+                                viewport[x, y] = Blend(wallColor, brightness, .8);
+
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            // Floor
+                            if (Options.floorReflections)
+                            {
                                 // Shade the floor
                                 float shading = ((nY - screenHeight / 2.0f) / (screenHeight / 2.0f)) / 2f;
 
@@ -376,22 +387,20 @@ namespace FirstPersonGameEngine
 
                                 if (distToLastWall < 0) distToLastWall = 0;
                             }
-                        }
-
-                        if (brightnessValue > 255) brightnessValue = 255;
-                        if (brightnessValue < 0) brightnessValue = 0;
-
-                        if (y < value.GetLength(1) && y >= 0)
-                        {
-                            value[x, y] = Color.FromArgb(brightnessValue, brightnessValue, brightnessValue, brightnessValue); ;
+                            else
+                            {
+                                brightnessValue = 0;
+                            }
                         }
                     }
+
+                    if (brightnessValue > 255) brightnessValue = 255;
+                    if (brightnessValue < 0) brightnessValue = 0;
+
+                    if (y < viewport.GetLength(1) && y >= 0)
+                        viewport[x, y] = Color.FromArgb(brightnessValue, brightnessValue, brightnessValue, brightnessValue);
                 }
-
-                return value;
-            });
-
-            viewport = colors.Result;
+            }
         }
 
         public static Color Blend(Color color, Color backColor, double amount)
