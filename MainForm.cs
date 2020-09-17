@@ -110,6 +110,8 @@ namespace FirstPersonGameEngine
             timeSinceLastFrame = timerA - timerB;
             timerA = timerB;
 
+            Debug.RecieveFrameTime(timeSinceLastFrame);
+
             // Check all units for any change.
             // (This would not be optimal for larger games. Instead just draw the world every update.)
             foreach (var unit in mainGame.units)
@@ -215,6 +217,12 @@ namespace FirstPersonGameEngine
                 Debug.Displaying = !Debug.Displaying;
             }
 
+            if (Input.KeyDown(Keys.F2))
+            {
+                Options.floorReflections = !Options.floorReflections;
+                DrawWorldThread();
+            }
+
             if (Input.KeyDown(Keys.F5))
             {
                 Options.depthOfView++;
@@ -223,6 +231,22 @@ namespace FirstPersonGameEngine
             else if (Input.KeyDown(Keys.F4))
             {
                 Options.depthOfView--;
+                DrawWorldThread();
+            }
+
+            if (Input.KeyDown(Keys.F6))
+            {
+                Options.floorReflection -= 0.1f;
+                DrawWorldThread();
+            }
+            else if (Input.KeyDown(Keys.F7))
+            {
+                Options.floorReflection += 0.1f;
+                DrawWorldThread();
+            }
+            else if (Input.KeyDown(Keys.F8))
+            {
+                Options.motionBlur = Options.motionBlur == 3 ? 1 : 3;
                 DrawWorldThread();
             }
 
@@ -246,6 +270,7 @@ namespace FirstPersonGameEngine
             // Get the colors from the screen
             viewport = new Color[screenWidth, screenHeight];
 
+            Color wallColor = Color.Empty;
             float distToLastWall = 0;
 
             // Draw screen
@@ -255,7 +280,6 @@ namespace FirstPersonGameEngine
                 float rayAngle = (Player.angle - fov / 2.0f) + ((float)x / (float)screenWidth) * fov;
                 float distanceToWall = 0;
 
-                Color wallColor = Color.Empty;
                 bool boundary = false;
 
                 // Unit vector for ray in player space
@@ -264,7 +288,7 @@ namespace FirstPersonGameEngine
 
                 while (distanceToWall < depthOfView)
                 {
-                    distanceToWall += .05f;
+                    distanceToWall += (distanceToWall * 0.05f) + 0.01f;
 
                     int testX = (int)(Player.position.x + eyeX * distanceToWall);
                     int testY = (int)(Player.position.y + eyeY * distanceToWall);
@@ -372,7 +396,7 @@ namespace FirstPersonGameEngine
                                 // Shade the floor
                                 float shading = ((nY - screenHeight / 2.0f) / (screenHeight / 2.0f)) / 2f;
 
-                                if (distToLastWall > .1f)
+                                if (distToLastWall > .01f)
                                 {
                                     var floorRelectDOV = depthOfView - 5;
 
@@ -383,7 +407,7 @@ namespace FirstPersonGameEngine
 
                                 brightnessValue = (byte)(255 * shading);
 
-                                distToLastWall -= .5f;
+                                distToLastWall -= Options.floorReflection;
 
                                 if (distToLastWall < 0) distToLastWall = 0;
                             }
@@ -398,7 +422,12 @@ namespace FirstPersonGameEngine
                     if (brightnessValue < 0) brightnessValue = 0;
 
                     if (y < viewport.GetLength(1) && y >= 0)
-                        viewport[x, y] = Color.FromArgb(brightnessValue, brightnessValue, brightnessValue, brightnessValue);
+                    {
+                        float b = brightnessValue / 255f;
+
+                        viewport[x, y] = Color.FromArgb(brightnessValue, (int)(wallColor.R * b),
+                            (int)(wallColor.G * b), (int)(wallColor.B * b));
+                    }
                 }
             }
         }
@@ -420,7 +449,7 @@ namespace FirstPersonGameEngine
 
             graphics.Clear(Color.Empty);
 
-            var resolutionDivider = Options.resolutionDivider;
+            var renderScale = Options.resolutionDivider;
             var motionBlur = (Player.IsStill ? 1 : Options.motionBlur);
 
             // Draw screen
@@ -441,13 +470,16 @@ namespace FirstPersonGameEngine
                     // Dont draw if color is black/empty
                     if (color.IsEmpty || color == Color.Black || color.GetBrightness() < 0.05f) continue;
 
-                    var rectPos = new Rectangle((x * motionBlur) * resolutionDivider, (y * motionBlur) * resolutionDivider, motionBlur * resolutionDivider, motionBlur * resolutionDivider);
+                    var rectPos = new Rectangle((x * motionBlur) * renderScale, (y * motionBlur) * renderScale, motionBlur * renderScale, motionBlur * renderScale);
                     graphics.FillRectangle(new SolidBrush(color), rectPos);
                 }
             }
 
             if (Debug.Displaying)
-                graphics.DrawString($"FPS={1.0f / timeSinceLastFrame}\n" +
+                graphics.DrawString($"FPS={Debug.frameRate}\n" +
+                    $"AFPS={Debug.avgFrameRate}\n" +
+                    $"LFPS={Debug.lowestFrameRate}\n" +
+                    $"HFPS={Debug.highestFrameRate}\n" +
                     $"X:{(int)Player.position.x} Y:{(int)Player.position.y} Z:{(int)Player.position.z}\n" +
                     $"ROT:{(int)((360 / 2) / (3.14 / Player.angle))}", SystemFonts.DefaultFont, Brushes.LightSalmon, new RectangleF(10, 10, screenWidth, screenHeight));
         }

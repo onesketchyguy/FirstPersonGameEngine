@@ -9,3 +9,7 @@ C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstP
 C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.AssemblyInfo.cs
 C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.dll
 C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.pdb
+C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.MainForm.resources
+C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.csproj.GenerateResource.cache
+C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.csproj.CoreCompileInputs.cache
+C:\Users\frres\source\repos\FirstPersonGameEngine\obj\Debug\netcoreapp3.1\FirstPersonGameEngine.genruntimeconfig.cache
